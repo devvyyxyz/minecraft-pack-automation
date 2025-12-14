@@ -49,24 +49,6 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Resolve versions to update
-        id: resolve
-        run: |
-          echo "Resolving versions using scripts/resolve_versions.py"
-          python3 _automation/scripts/resolve_versions.py "${{ inputs.modrinth_project_id }}" > versions_to_update.json
-          {
-          printf 'versions_json<<EOF\n'
-          cat versions_to_update.json
-          printf 'EOF\n'
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Extract pack format groups
-        id: extract-groups
-        run: |
-          python3 _automation/scripts/extract_groups.py > extracted.env
-          cat extracted.env >> "$GITHUB_ENV"
-          cat extracted.env >> "$GITHUB_OUTPUT"
-
       - name: Read VERSION file
         id: version
         run: |
@@ -77,6 +59,26 @@ jobs:
           fi
           echo "$ver" > VERSION
           echo "PACK_VERSION=$ver" >> $GITHUB_OUTPUT
+
+      - name: Resolve versions to update
+        id: resolve
+        run: |
+          echo "Resolving versions using _automation/scripts/resolve_versions.py"
+          python3 _automation/scripts/resolve_versions.py "${{ inputs.modrinth_project_id }}" > versions_to_update.json
+          {
+            printf 'versions_json<<EOF\n'
+            cat versions_to_update.json
+            printf 'EOF\n'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Extract pack format groups
+        id: extract-groups
+        run: |
+          python3 _automation/scripts/extract_groups.py > extracted.env
+          cat extracted.env >> "$GITHUB_ENV"
+          cat extracted.env >> "$GITHUB_OUTPUT"
+
+      
           
       - name: Update pack files
         run: python3 _automation/scripts/update_pack.py
