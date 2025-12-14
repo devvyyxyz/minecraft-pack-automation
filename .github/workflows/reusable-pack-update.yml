@@ -8,6 +8,10 @@ on:
         required: true
         type: string
       pack_name:
+      pack_dir:
+        required: false
+        type: string
+        default: '.'
         description: Resource pack name used for zip file name
         required: false
         type: string
@@ -112,6 +116,7 @@ jobs:
         env:
           MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN || secrets.MODRINTH_API_TOKEN }}
           PACK_VERSION: ${{ steps.version.outputs.PACK_VERSION }}
+          PACK_DIR: ${{ inputs.pack_dir }}
         run: |
           # Use the resolved UUID if available, otherwise fall back to input (for first upload)
           project_id="${MODRINTH_PROJECT_UUID:-${{ inputs.modrinth_project_id }}}"
@@ -128,10 +133,13 @@ jobs:
             version_number="${PACK_VERSION}-pf${pack_format}"
 
             echo "Uploading version $version_number for pack format $pack_format"
+            # Call uploader with expected argument order:
+            # project_id, version_number, game_versions_csv, api_token, pack_dir, output_zip
             python3 _automation/scripts/upload_modrinth.py \
-              "build/${{ inputs.pack_name }}.zip" \
               "$project_id" \
-              "$versions" \
               "$version_number" \
-              "$MODRINTH_TOKEN"
+              "$versions" \
+              "$MODRINTH_TOKEN" \
+              "$PACK_DIR" \
+              "build/${{ inputs.pack_name }}.zip"
           done
