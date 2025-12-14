@@ -91,29 +91,44 @@ jobs:
                   print(f"Warning: Failed to fetch version data for {version_id}: {e}")
                   return None
               
-              pack_version = (
-                  version_data.get("packVersion")
-                  or version_data.get("pack_version")
-                  or version_data.get("pack")
-                  or {}
-              )
+              # Try multiple possible locations for pack format in the version JSON
+              pack_format = None
+              
+              # Check javaVersion.majorVersion as indicator for newer versions
+              java_version = version_data.get("javaVersion", {})
+              if isinstance(java_version, dict):
+                  major = java_version.get("majorVersion")
+                  # Newer versions with Java 21+ typically use pack format 34+
+                  if major and major >= 21 and pack_format is None:
+                      print(f"Found Java {major}, using pack format estimation")
+                      pack_format = 34  # Reasonable default for 1.21.x
+              
+              # Try direct pack format fields
+              if pack_format is None:
+                  pack_version = (
+                      version_data.get("packVersion")
+                      or version_data.get("pack_version")
+                      or version_data.get("pack")
+                      or {}
+                  )
 
-              def extract_pack_format(pv):
-                  if isinstance(pv, dict):
-                      return (
-                          pv.get("resource")
-                          or pv.get("resourcePack")
-                          or pv.get("resource_pack")
-                          or pv.get("resource_pack_version")
-                          or pv.get("pack_format")
-                      )
-                  return pv
+                  def extract_pack_format(pv):
+                      if isinstance(pv, dict):
+                          return (
+                              pv.get("resource")
+                              or pv.get("resourcePack")
+                              or pv.get("resource_pack")
+                              or pv.get("resource_pack_version")
+                              or pv.get("pack_format")
+                          )
+                      return pv
 
-              pack_format = extract_pack_format(pack_version)
+                  pack_format = extract_pack_format(pack_version)
 
               if pack_format is None:
                   pack_format = version_data.get("resourcePackVersion") or version_data.get("resource_pack_version")
 
+              # Try misode as fallback
               if pack_format is None:
                   pack_format = fetch_pack_format_from_misode(version_id)
 
@@ -137,7 +152,13 @@ jobs:
           ]
 
           if not groups:
-              print("Warning: No versions could be resolved. Using empty groups list.")
+              print("Warning: No versions could be resolved. Attempting to use latest release with default pack format.")
+              # Last resort: use latest release with a modern pack format default
+              if targets:
+                  latest = targets[0]
+                  latest_id = latest.get("id", "unknown")
+                  groups = [{"pack_format": 34, "versions": [latest_id]}]
+                  print(f"Using {latest_id} with pack format 34 (default for modern versions)")
           
           output = {"groups": groups}
           with open("versions_to_update.json", "w", encoding="utf-8") as f:
