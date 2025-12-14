@@ -63,64 +63,21 @@ jobs:
       - name: Extract pack format groups
         id: extract-groups
         run: |
-          python3 <<'PY' > extracted.env
-          import json
-          with open('versions_to_update.json') as f:
-              data = json.load(f)
-          for i, group in enumerate(data.get('groups', [])):
-              versions = ','.join(group['versions'])
-              print(f'GROUP_{i}_VERSIONS={versions}')
-              print(f'GROUP_{i}_PACK_FORMAT={group["pack_format"]}')
-          print(f'TOTAL_GROUPS={len(data.get("groups", []))}')
-          PY
+          python3 _automation/scripts/extract_groups.py > extracted.env
           cat extracted.env >> "$GITHUB_ENV"
           cat extracted.env >> "$GITHUB_OUTPUT"
 
       - name: Read VERSION file
         id: version
         run: |
-          if [ -n "${{ inputs.pack_version }}" ]; then
-            echo "Using provided pack_version input"
-            echo "${{ inputs.pack_version }}" > VERSION
-            echo "PACK_VERSION=${{ inputs.pack_version }}" >> $GITHUB_OUTPUT
-          else
-            if [ -f version.json ]; then
-              echo "Found version.json; extracting version..."
-              ver=$(python3 - <<'PY'
-import json
-with open('version.json', 'r', encoding='utf-8') as f:
-    data = json.load(f)
-v = data.get('version') or data.get('pack_version') or data.get('name')
-if not v:
-    raise SystemExit('version.json missing "version" (or pack_version/name) field')
-print(v)
-PY
-              )
-              echo "$ver" > VERSION
-              echo "PACK_VERSION=$ver" >> $GITHUB_OUTPUT
-            elif [ -f VERSION ]; then
-              echo "PACK_VERSION=$(cat VERSION)" >> $GITHUB_OUTPUT
-            else
-              echo "VERSION file not found; attempting tag-based fallback..."
-              # Prefer GitHub-provided ref name if this is a tag run
-              if [ "${GITHUB_REF_TYPE}" = "tag" ] && [ -n "${GITHUB_REF_NAME}" ]; then
-                echo "Detected tag: ${GITHUB_REF_NAME}"
-                echo "${GITHUB_REF_NAME}" > VERSION
-                echo "PACK_VERSION=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
-              else
-                # Try the latest reachable tag in the repo
-                if ver=$(git describe --tags --abbrev=0 2>/dev/null); then
-                  echo "Resolved latest tag: ${ver}"
-                  echo "${ver}" > VERSION
-                  echo "PACK_VERSION=${ver}" >> $GITHUB_OUTPUT
-                else
-                  echo "ERROR: VERSION file not found, no pack_version input, no version.json, and no tags available." >&2
-                  exit 1
-                fi
-              fi
-            fi
+          ver=$(python3 _automation/scripts/read_version.py "${{ inputs.pack_version }}")
+          if [ -z "$ver" ]; then
+            echo "ERROR: Could not resolve PACK_VERSION (no input, no version.json, no VERSION, no tags)." >&2
+            exit 1
           fi
-  
+          echo "$ver" > VERSION
+          echo "PACK_VERSION=$ver" >> $GITHUB_OUTPUT
+          
       - name: Update pack files
         run: python3 _automation/scripts/update_pack.py
 
@@ -129,7 +86,7 @@ PY
           mkdir -p build
           zip -r "build/${{ inputs.pack_name }}.zip" pack.mcmeta pack.png assets/ -x "*.DS_Store"
 
-      - name: Upload to Modrinth (all groups)
+          - name: Upload to Modrinth (all groups)
         env:
           MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
           PACK_VERSION: ${{ steps.version.outputs.PACK_VERSION }}
