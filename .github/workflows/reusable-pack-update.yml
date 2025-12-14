@@ -176,16 +176,18 @@ jobs:
       - name: Extract pack format groups
         id: extract
         run: |
-          python3 - << 'PY'
-          import json
-          with open('versions_to_update.json') as f:
-              data = json.load(f)
-          for i, group in enumerate(data.get('groups', [])):
-              versions = ','.join(group['versions'])
-              print(f'GROUP_{i}_VERSIONS={versions}')
-              print(f'GROUP_{i}_PACK_FORMAT={group["pack_format"]}')
-          print(f'TOTAL_GROUPS={len(data.get("groups", []))}')
-          PY >> $GITHUB_OUTPUT
+          python3 <<'PY' > extracted.env
+    import json
+    with open('versions_to_update.json') as f:
+      data = json.load(f)
+    for i, group in enumerate(data.get('groups', [])):
+      versions = ','.join(group['versions'])
+      print(f'GROUP_{i}_VERSIONS={versions}')
+      print(f'GROUP_{i}_PACK_FORMAT={group["pack_format"]}')
+    print(f'TOTAL_GROUPS={len(data.get("groups", []))}')
+    PY
+          cat extracted.env >> "$GITHUB_ENV"
+          cat extracted.env >> "$GITHUB_OUTPUT"
 
       - name: Read VERSION file
         id: version
@@ -204,7 +206,7 @@ jobs:
           MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
           PACK_VERSION: ${{ steps.version.outputs.PACK_VERSION }}
         run: |
-          groups_count=${{ steps.extract.outputs.TOTAL_GROUPS }}
+          groups_count="${TOTAL_GROUPS:-${{ steps.extract.outputs.TOTAL_GROUPS }}}"
           if [ "$groups_count" -eq 0 ]; then
             echo "No pack-format groups resolved; skipping upload."
             exit 0
