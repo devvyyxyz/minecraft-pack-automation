@@ -25,6 +25,9 @@ on:
       MODRINTH_TOKEN:
         description: Modrinth API token
         required: true
+      MODRINTH_API_TOKEN:
+        description: Alternate secret name for Modrinth API token (optional)
+        required: false
 
 jobs:
   update-pack:
@@ -106,7 +109,7 @@ jobs:
 
       - name: Upload to Modrinth (all groups)
         env:
-          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN || secrets.MODRINTH_API_TOKEN }}
           PACK_VERSION: ${{ steps.version.outputs.PACK_VERSION }}
         run: |
           groups_count="${TOTAL_GROUPS:-${{ steps.extract-groups.outputs.TOTAL_GROUPS }}}"
