@@ -13,6 +13,16 @@ from pathlib import Path
 from typing import Dict, List, Set, Optional
 from dataclasses import dataclass
 
+# ANSI color codes
+class Color:
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    RED = '\033[91m'
+    BLUE = '\033[94m'
+    CYAN = '\033[96m'
+    BOLD = '\033[1m'
+    RESET = '\033[0m'
+
 
 @dataclass
 class MinecraftVersion:
@@ -126,9 +136,9 @@ def resolve_modrinth_project_id(project_id_or_slug: str) -> Optional[str]:
         return pid
     except urllib.error.HTTPError as e:
         if e.code == 404:
-            print(f"[!] Project '{project_id_or_slug}' not found on Modrinth (possibly first upload)", file=sys.stderr)
+            print(f"{Color.YELLOW}[!] Project '{project_id_or_slug}' not found on Modrinth (possibly first upload){Color.RESET}", file=sys.stderr)
             return None
-        print(f"ERROR: Modrinth API error while resolving project: {e}", file=sys.stderr)
+        print(f"{Color.RED}ERROR: Modrinth API error while resolving project: {e}{Color.RESET}", file=sys.stderr)
         sys.exit(1)
     except Exception as e:
         print(f"ERROR: Failed to resolve Modrinth project id: {e}", file=sys.stderr)
@@ -154,7 +164,7 @@ def fetch_modrinth_versions(project_id_or_slug: str) -> dict:
         
         # If project doesn't exist yet (first upload), return empty sets
         if canonical_id is None:
-            print(f"[!] No existing versions on Modrinth (new project or first upload)", file=sys.stderr)
+            print(f"{Color.CYAN}[+] No existing versions on Modrinth - all pack formats will be uploaded{Color.RESET}", file=sys.stderr)
             return {'game_versions': set(), 'pack_versions': {}}
         
         url = f"https://api.modrinth.com/v2/project/{canonical_id}/versions"
@@ -306,16 +316,16 @@ def main():
     
     # Get pack version from VERSION file
     pack_version = get_pack_version()
-    print(f"[*] Pack version: {pack_version}", file=sys.stderr)
+    print(f"{Color.CYAN}[*] Pack version: {Color.BOLD}{pack_version}{Color.RESET}", file=sys.stderr)
     
-    print(f"[*] Fetching Minecraft releases...", file=sys.stderr)
+    print(f"{Color.BLUE}[*] Fetching Minecraft releases...{Color.RESET}", file=sys.stderr)
     mc_releases = fetch_minecraft_releases()
-    print(f"[+] Found {len(mc_releases)} Minecraft release versions", file=sys.stderr)
+    print(f"{Color.GREEN}[+] Found {len(mc_releases)} Minecraft release versions{Color.RESET}", file=sys.stderr)
     
-    print(f"[*] Fetching Modrinth versions for project '{project_id}'...", file=sys.stderr)
+    print(f"{Color.BLUE}[*] Fetching Modrinth versions for project '{project_id}'...{Color.RESET}", file=sys.stderr)
     modrinth_data = fetch_modrinth_versions(project_id)
-    print(f"[+] Found {len(modrinth_data['game_versions'])} game versions on Modrinth", file=sys.stderr)
-    print(f"[+] Found {len(modrinth_data['pack_versions'])} pack versions on Modrinth", file=sys.stderr)
+    print(f"{Color.GREEN}[+] Found {len(modrinth_data['game_versions'])} game versions on Modrinth{Color.RESET}", file=sys.stderr)
+    print(f"{Color.GREEN}[+] Found {len(modrinth_data['pack_versions'])} pack versions on Modrinth{Color.RESET}", file=sys.stderr)
     
     # Group by pack_format
     format_groups = group_by_pack_format(mc_releases, modrinth_data, pack_version)
@@ -327,20 +337,20 @@ def main():
     }
     
     if groups_to_upload:
-        print(f"[!] Found {len(groups_to_upload)} pack format groups to upload:", file=sys.stderr)
+        print(f"{Color.YELLOW}[!] Found {len(groups_to_upload)} pack format groups to upload:{Color.RESET}", file=sys.stderr)
         for pf, group in sorted(groups_to_upload.items(), reverse=True):
-            print(f"    - Pack Format {pf}: {group['upload_reason']} ({group['version_range']})", file=sys.stderr)
+            print(f"    {Color.CYAN}- Pack Format {pf}: {group['upload_reason']} ({group['version_range']}){Color.RESET}", file=sys.stderr)
     else:
-        print(f"[+] All pack formats are up-to-date!", file=sys.stderr)
+        print(f"{Color.GREEN}[+] All pack formats are up-to-date!{Color.RESET}", file=sys.stderr)
     
     # Output JSON for workflow
     output = {
         "pack_version": pack_version,
-        "all_groups": list(format_groups.values()),
-        "groups_to_upload": [
+        "groups": [
             group for group in format_groups.values()
             if group["needs_upload"]
         ],
+        "all_groups": list(format_groups.values()),
         "modrinth_game_versions": sorted(list(modrinth_data['game_versions'])),
         "modrinth_pack_versions": list(modrinth_data['pack_versions'].keys()),
     }
