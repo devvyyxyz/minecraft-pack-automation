@@ -109,11 +109,11 @@ def fetch_minecraft_releases() -> List[MinecraftVersion]:
         sys.exit(1)
 
 
-def resolve_modrinth_project_id(project_id_or_slug: str) -> str:
+def resolve_modrinth_project_id(project_id_or_slug: str) -> Optional[str]:
     """Resolve a Modrinth project ID from a slug or ID.
 
-    Tries `GET /v2/project/{id_or_slug}`. If not found, raises.
-    Returns the canonical UUID `id`.
+    Tries `GET /v2/project/{id_or_slug}`. Returns None if not found (first upload).
+    Returns the canonical UUID `id` if found.
     """
     try:
         url = f"https://api.modrinth.com/v2/project/{project_id_or_slug}"
@@ -121,13 +121,13 @@ def resolve_modrinth_project_id(project_id_or_slug: str) -> str:
             data = json.loads(response.read().decode())
         pid = data.get("id") or data.get("project_id")
         if not pid:
-            print(f"ERROR: Unable to resolve Modrinth project id from '{project_id_or_slug}'", file=sys.stderr)
-            sys.exit(1)
+            print(f"WARNING: Unable to resolve Modrinth project id from '{project_id_or_slug}'", file=sys.stderr)
+            return None
         return pid
     except urllib.error.HTTPError as e:
         if e.code == 404:
-            print(f"ERROR: Project '{project_id_or_slug}' not found on Modrinth. Check the slug/ID.", file=sys.stderr)
-            sys.exit(1)
+            print(f"[!] Project '{project_id_or_slug}' not found on Modrinth (possibly first upload)", file=sys.stderr)
+            return None
         print(f"ERROR: Modrinth API error while resolving project: {e}", file=sys.stderr)
         sys.exit(1)
     except Exception as e:
@@ -150,8 +150,12 @@ def fetch_modrinth_versions(project_id_or_slug: str) -> dict:
     """
     try:
         # Resolve to canonical project id first (supports slug or id)
-        canonical_id = resolve_modrinth_project_id(project_id_or_slug)
-        url = f"https://api.modrinth.com/v2/project/{canonical_id}/versions"
+        canonical_id = resolve_modrinth_project_id(project_id_or_slug)        
+        # If project doesn't exist yet (first upload), return empty sets
+        if canonical_id is None:
+            print(f"[!] No existing versions on Modrinth (new project or first upload)", file=sys.stderr)
+            return {'game_versions': set(), 'pack_versions': {}}
+                url = f"https://api.modrinth.com/v2/project/{canonical_id}/versions"
         with urllib.request.urlopen(url, timeout=10) as response:
             versions = json.loads(response.read().decode())
         
