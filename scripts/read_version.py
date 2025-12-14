@@ -3,6 +3,13 @@ import os
 import subprocess
 import sys
 
+# ANSI color codes
+class Color:
+    GREEN = '\033[92m'
+    CYAN = '\033[96m'
+    YELLOW = '\033[93m'
+    RESET = '\033[0m'
+
 
 def read_from_version_json(path: str) -> str | None:
     try:
@@ -31,17 +38,20 @@ def main():
     # Optional first arg: explicit version override
     override = sys.argv[1] if len(sys.argv) > 1 else None
     if override:
+        print(f"{Color.CYAN}[*] Using provided pack_version input{Color.RESET}", file=sys.stderr)
         print(override)
         return
 
     # version.json
     v = read_from_version_json("version.json")
     if v:
+        print(f"{Color.GREEN}[+] Found version in version.json{Color.RESET}", file=sys.stderr)
         print(v)
         return
 
     # VERSION file
     if os.path.exists("VERSION"):
+        print(f"{Color.GREEN}[+] Found VERSION file{Color.RESET}", file=sys.stderr)
         with open("VERSION", "r", encoding="utf-8") as f:
             print(f.read().strip())
         return
@@ -50,11 +60,13 @@ def main():
     ref_type = os.environ.get("GITHUB_REF_TYPE", "")
     ref_name = os.environ.get("GITHUB_REF_NAME", "")
     if ref_type == "tag" and ref_name:
+        print(f"{Color.YELLOW}[*] Using tag from GITHUB_REF_NAME{Color.RESET}", file=sys.stderr)
         print(ref_name)
         return
 
     tag = read_latest_tag()
     if tag:
+        print(f"{Color.YELLOW}[*] Using latest git tag{Color.RESET}", file=sys.stderr)
         print(tag)
         return
 

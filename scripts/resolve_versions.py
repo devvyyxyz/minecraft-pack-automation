@@ -250,12 +250,12 @@ def group_by_pack_format(
         if pf not in format_groups:
             format_groups[pf] = {
                 "pack_format": pf,
-                "all_versions": [],
+                "versions": [],
                 "missing_versions": [],
                 "needs_upload": False
             }
         
-        format_groups[pf]["all_versions"].append(release.version)
+        format_groups[pf]["versions"].append(release.version)
         
         # Check if this specific Minecraft version is missing
         if release.version not in modrinth_game_versions:
@@ -263,7 +263,7 @@ def group_by_pack_format(
     
     # For each group, determine version range and check if pack version exists
     for pf, group in format_groups.items():
-        versions = group["all_versions"]
+        versions = group["versions"]
         
         # Sort versions (simple string sort works for most cases)
         versions.sort()
