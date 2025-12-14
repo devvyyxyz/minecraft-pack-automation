@@ -64,6 +64,10 @@ jobs:
         id: resolve
         run: |
           echo "Resolving versions using _automation/scripts/resolve_versions.py"
+          # Ensure VERSION file exists for scripts that expect it
+          if [ ! -f VERSION ] && [ -n "${{ steps.version.outputs.PACK_VERSION }}" ]; then
+            echo "${{ steps.version.outputs.PACK_VERSION }}" > VERSION
+          fi
           python3 _automation/scripts/resolve_versions.py "${{ inputs.modrinth_project_id }}" > versions_to_update.json
           {
             printf 'versions_json<<EOF\n'
