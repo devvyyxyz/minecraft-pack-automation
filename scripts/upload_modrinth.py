@@ -195,8 +195,15 @@ def main():
     
     project_id = sys.argv[1]
     version_number = sys.argv[2]
-    game_versions = json.loads(sys.argv[3])  # Parse JSON array of versions
+    game_versions_csv = sys.argv[3]  # Comma-separated string like "1.21.4,1.21.3"
     api_token = sys.argv[4]
+    
+    # Parse comma-separated versions
+    if game_versions_csv:
+        game_versions = [v.strip() for v in game_versions_csv.split(',') if v.strip()]
+    else:
+        print(f"{Color.RED}ERROR: No game versions provided{Color.RESET}", file=sys.stderr)
+        sys.exit(1)
     pack_dir = sys.argv[5]
     output_zip = sys.argv[6] if len(sys.argv) > 6 else f"XYZ-{version_number}.zip"
     version_name = sys.argv[7] if len(sys.argv) > 7 else None
