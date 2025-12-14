@@ -160,6 +160,8 @@ def upload_to_modrinth(
         request.add_header('User-Agent', 'XYZ-Classic-Panorama-Updater/1.0')
         
         print(f"[*] Uploading to Modrinth ({zip_file.stat().st_size:,} bytes)...", file=sys.stderr)
+        print(f"    Project ID: {project_id}", file=sys.stderr)
+        print(f"    Version: {version_number}", file=sys.stderr)
         print(f"    Supported versions: {', '.join(game_versions)}", file=sys.stderr)
         
         with urllib.request.urlopen(request, timeout=30) as response:
