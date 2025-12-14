@@ -167,9 +167,11 @@ jobs:
           PYSCRIPT
           fi
 
-          echo "versions_json<<EOF" >> $GITHUB_OUTPUT
-          cat versions_to_update.json >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          {
+            echo "versions_json<<EOF"
+            cat versions_to_update.json
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Extract pack format groups
         id: extract
