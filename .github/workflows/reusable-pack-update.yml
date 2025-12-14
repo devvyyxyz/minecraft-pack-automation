@@ -126,7 +126,7 @@ jobs:
             with open("versions_to_update.json", "w", encoding="utf-8") as f:
                 json.dump(output, f, indent=2)
             print(json.dumps(output, indent=2))
-            PYSCRIPT
+          PYSCRIPT
           fi
 
           echo "versions_json<<EOF" >> $GITHUB_OUTPUT
