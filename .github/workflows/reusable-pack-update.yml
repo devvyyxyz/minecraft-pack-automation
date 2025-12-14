@@ -12,6 +12,10 @@ on:
         required: false
         type: string
         default: Resource Pack
+      pack_version:
+        description: Optional override for pack version; writes to VERSION if provided
+        required: false
+        type: string
       automation_repo:
         description: Owner/repo for automation scripts to checkout
         required: false
@@ -74,7 +78,19 @@ jobs:
 
       - name: Read VERSION file
         id: version
-        run: echo "PACK_VERSION=$(cat VERSION)" >> $GITHUB_OUTPUT
+        run: |
+          if [ -n "${{ inputs.pack_version }}" ]; then
+            echo "Using provided pack_version input"
+            echo "${{ inputs.pack_version }}" > VERSION
+            echo "PACK_VERSION=${{ inputs.pack_version }}" >> $GITHUB_OUTPUT
+          else
+            if [ -f VERSION ]; then
+              echo "PACK_VERSION=$(cat VERSION)" >> $GITHUB_OUTPUT
+            else
+              echo "ERROR: VERSION file not found and no pack_version input provided." >&2
+              exit 1
+            fi
+          fi
   
       - name: Update pack files
         run: python3 _automation/scripts/update_pack.py
