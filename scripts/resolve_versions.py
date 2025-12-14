@@ -149,8 +149,8 @@ def fetch_modrinth_versions(project_id: str) -> dict:
     
     except urllib.error.HTTPError as e:
         if e.code == 404:
-            print(f"WARNING: Project '{project_id}' not found on Modrinth", file=sys.stderr)
-            return {'game_versions': set(), 'pack_versions': {}}
+            print(f"ERROR: Project '{project_id}' not found on Modrinth. Check the slug/ID.", file=sys.stderr)
+            sys.exit(1)
         print(f"ERROR: Modrinth API error: {e}", file=sys.stderr)
         sys.exit(1)
     except Exception as e:
