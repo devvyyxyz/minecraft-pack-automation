@@ -6,6 +6,7 @@ Uses misode/mcmeta API for accurate, auto-updating pack format data.
 """
 
 import json
+import os
 import sys
 import urllib.request
 from pathlib import Path
