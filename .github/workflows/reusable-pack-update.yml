@@ -12,6 +12,11 @@ on:
         required: false
         type: string
         default: Resource Pack
+      automation_repo:
+        description: Owner/repo for automation scripts to checkout
+        required: false
+        type: string
+        default: devvyyxyz/minecraft-pack-automation
     secrets:
       MODRINTH_TOKEN:
         description: Modrinth API token
@@ -29,6 +34,12 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Checkout automation scripts repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.automation_repo }}
+          path: _automation
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -38,7 +49,7 @@ jobs:
         id: resolve
         run: |
           echo "Resolving versions using scripts/resolve_versions.py"
-          python3 scripts/resolve_versions.py "${{ inputs.modrinth_project_id }}" > versions_to_update.json
+          python3 _automation/scripts/resolve_versions.py "${{ inputs.modrinth_project_id }}" > versions_to_update.json
           {
           printf 'versions_json<<EOF\n'
           cat versions_to_update.json
@@ -66,7 +77,7 @@ jobs:
         run: echo "PACK_VERSION=$(cat VERSION)" >> $GITHUB_OUTPUT
   
       - name: Update pack files
-        run: python3 scripts/update_pack.py
+        run: python3 _automation/scripts/update_pack.py
 
       - name: Create resource pack zip
         run: |
@@ -90,7 +101,7 @@ jobs:
             version_number="${PACK_VERSION}-pf${pack_format}"
 
             echo "Uploading version $version_number for pack format $pack_format"
-            python3 scripts/upload_modrinth.py \
+            python3 _automation/scripts/upload_modrinth.py \
               "build/${{ inputs.pack_name }}.zip" \
               "${{ inputs.modrinth_project_id }}" \
               "$versions" \
