@@ -322,6 +322,14 @@ def main():
     mc_releases = fetch_minecraft_releases()
     print(f"{Color.GREEN}[+] Found {len(mc_releases)} Minecraft release versions{Color.RESET}", file=sys.stderr)
     
+    # Resolve project ID to UUID
+    print(f"{Color.BLUE}[*] Resolving Modrinth project '{project_id}'...{Color.RESET}", file=sys.stderr)
+    resolved_project_id = resolve_modrinth_project_id(project_id)
+    if resolved_project_id:
+        print(f"{Color.GREEN}[+] Resolved to project UUID: {resolved_project_id}{Color.RESET}", file=sys.stderr)
+    else:
+        resolved_project_id = None  # First upload, no UUID yet
+    
     print(f"{Color.BLUE}[*] Fetching Modrinth versions for project '{project_id}'...{Color.RESET}", file=sys.stderr)
     modrinth_data = fetch_modrinth_versions(project_id)
     print(f"{Color.GREEN}[+] Found {len(modrinth_data['game_versions'])} game versions on Modrinth{Color.RESET}", file=sys.stderr)
@@ -346,6 +354,7 @@ def main():
     # Output JSON for workflow
     output = {
         "pack_version": pack_version,
+        "modrinth_project_id": resolved_project_id,
         "groups": [
             group for group in format_groups.values()
             if group["needs_upload"]

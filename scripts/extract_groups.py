@@ -13,7 +13,15 @@ def main():
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
     groups = data.get("groups", [])
+    project_id = data.get("modrinth_project_id")
+    
     print(f"{Color.CYAN}[*] Extracting {len(groups)} pack format groups{Color.RESET}", file=sys.stderr)
+    
+    # Output project ID if available
+    if project_id:
+        print(f"MODRINTH_PROJECT_UUID={project_id}")
+        print(f"{Color.GREEN}  [+] Modrinth project UUID: {project_id}{Color.RESET}", file=sys.stderr)
+    
     for i, group in enumerate(groups):
         versions = ",".join(group.get("versions", []))
         pf = group.get('pack_format')

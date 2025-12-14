@@ -113,6 +113,9 @@ jobs:
           MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN || secrets.MODRINTH_API_TOKEN }}
           PACK_VERSION: ${{ steps.version.outputs.PACK_VERSION }}
         run: |
+          # Use the resolved UUID if available, otherwise fall back to input (for first upload)
+          project_id="${MODRINTH_PROJECT_UUID:-${{ inputs.modrinth_project_id }}}"
+          
           groups_count="${TOTAL_GROUPS:-${{ steps.extract-groups.outputs.TOTAL_GROUPS }}}"
           if [ "$groups_count" -eq 0 ]; then
             echo "No pack-format groups resolved; skipping upload."
@@ -127,7 +130,7 @@ jobs:
             echo "Uploading version $version_number for pack format $pack_format"
             python3 _automation/scripts/upload_modrinth.py \
               "build/${{ inputs.pack_name }}.zip" \
-              "${{ inputs.modrinth_project_id }}" \
+              "$project_id" \
               "$versions" \
               "$version_number" \
               "$MODRINTH_TOKEN"
