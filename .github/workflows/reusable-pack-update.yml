@@ -4,17 +4,17 @@ on:
   workflow_call:
     inputs:
       modrinth_project_id:
-        description: 'Modrinth project ID (slug or ID)'
+        description: Modrinth project ID (slug or ID)
         required: true
         type: string
       pack_name:
-        description: 'Resource pack name used for zip file name'
+        description: Resource pack name used for zip file name
         required: false
         type: string
-        default: 'Resource Pack'
+        default: Resource Pack
     secrets:
       MODRINTH_TOKEN:
-        description: 'Modrinth API token'
+        description: Modrinth API token
         required: true
 
 jobs:
@@ -43,156 +43,150 @@ jobs:
           else
             echo "scripts/resolve_versions.py not found; falling back to built-in resolver (latest + previous release)."
             python3 - <<'PYSCRIPT'
-          import json
-          import urllib.request
+            import json
+            import urllib.request
 
-          MANIFEST_URL = "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json"
-          MISODE_PACKS_URL = "https://raw.githubusercontent.com/misode/mcmeta/summary/versions/data.json"
+            MANIFEST_URL = "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json"
+            MISODE_PACKS_URL = "https://raw.githubusercontent.com/misode/mcmeta/summary/versions/data.json"
 
-          def fetch_json(url: str) -> dict:
-              with urllib.request.urlopen(url) as resp:
-                  return json.load(resp)
+            def fetch_json(url: str) -> dict:
+          with urllib.request.urlopen(url) as resp:
+              return json.load(resp)
 
-          def fetch_pack_format_from_misode(version_id: str) -> int | None:
-              try:
-                  data = fetch_json(MISODE_PACKS_URL)
-              except Exception:
-                  return None
-              if isinstance(data, list):
-                  version_entry = next((v for v in data if v.get("id") == version_id), None)
-              else:
-                  version_entry = data.get("versions", {}).get(version_id)
-              if not version_entry:
-                  return None
-              pack_format = version_entry.get("resource")
-              return int(pack_format) if pack_format is not None else None
+            def fetch_pack_format_from_misode(version_id: str) -> int | None:
+          try:
+              data = fetch_json(MISODE_PACKS_URL)
+          except Exception:
+              return None
+          if isinstance(data, list):
+              version_entry = next((v for v in data if v.get("id") == version_id), None)
+          else:
+              version_entry = data.get("versions", {}).get(version_id)
+          if not version_entry:
+              return None
+          pack_format = version_entry.get("resource")
+          return int(pack_format) if pack_format is not None else None
 
-          manifest = fetch_json(MANIFEST_URL)
-          versions = manifest.get("versions", [])
-          release_indices = [i for i, v in enumerate(versions) if v.get("type") == "release"]
-          if not release_indices:
-              raise SystemExit("No release versions found in manifest")
+            manifest = fetch_json(MANIFEST_URL)
+            versions = manifest.get("versions", [])
+            release_indices = [i for i, v in enumerate(versions) if v.get("type") == "release"]
+            if not release_indices:
+          raise SystemExit("No release versions found in manifest")
 
-          latest_id = manifest.get("latest", {}).get("release") or versions[release_indices[0]].get("id")
-          latest_idx = next((i for i, v in enumerate(versions) if v.get("id") == latest_id), release_indices[0])
-          previous_idx = next((i for i in release_indices if i > latest_idx), None)
+            latest_id = manifest.get("latest", {}).get("release") or versions[release_indices[0]].get("id")
+            latest_idx = next((i for i, v in enumerate(versions) if v.get("id") == latest_id), release_indices[0])
+            previous_idx = next((i for i in release_indices if i > latest_idx), None)
 
-          targets = [versions[latest_idx]]
-          if previous_idx is not None:
-              targets.append(versions[previous_idx])
+            targets = [versions[latest_idx]]
+            if previous_idx is not None:
+          targets.append(versions[previous_idx])
 
-          def resolve_pack_format(entry: dict) -> tuple[str, int] | None:
-              version_id = entry.get("id")
-              print(f"Attempting to resolve pack format for {version_id}...")
-              
-              try:
-                  version_data = fetch_json(entry["url"])
-              except Exception as e:
-                  print(f"Warning: Failed to fetch version data for {version_id}: {e}")
-                  return None
-              
-              # Try multiple possible locations for pack format in the version JSON
-              pack_format = None
-              
-              # Check javaVersion.majorVersion as indicator for newer versions
-              java_version = version_data.get("javaVersion", {})
-              if isinstance(java_version, dict):
-                  major = java_version.get("majorVersion")
-                  # Newer versions with Java 21+ typically use pack format 34+
-                  if major and major >= 21 and pack_format is None:
-                      print(f"Found Java {major}, using pack format estimation")
-                      pack_format = 34  # Reasonable default for 1.21.x
-              
-              # Try direct pack format fields
-              if pack_format is None:
-                  pack_version = (
-                      version_data.get("packVersion")
-                      or version_data.get("pack_version")
-                      or version_data.get("pack")
-                      or {}
-                  )
+            def resolve_pack_format(entry: dict) -> tuple[str, int] | None:
+          version_id = entry.get("id")
+          print(f"Attempting to resolve pack format for {version_id}...")
 
-                  def extract_pack_format(pv):
-                      if isinstance(pv, dict):
-                          return (
-                              pv.get("resource")
-                              or pv.get("resourcePack")
-                              or pv.get("resource_pack")
-                              or pv.get("resource_pack_version")
-                              or pv.get("pack_format")
-                          )
-                      return pv
+          try:
+              version_data = fetch_json(entry["url"])
+          except Exception as e:
+              print(f"Warning: Failed to fetch version data for {version_id}: {e}")
+              return None
 
-                  pack_format = extract_pack_format(pack_version)
+          pack_format = None
 
-              if pack_format is None:
-                  pack_format = version_data.get("resourcePackVersion") or version_data.get("resource_pack_version")
+          java_version = version_data.get("javaVersion", {})
+          if isinstance(java_version, dict):
+              major = java_version.get("majorVersion")
+              if major and major >= 21 and pack_format is None:
+            print(f"Found Java {major}, using pack format estimation")
+            pack_format = 34
 
-              # Try misode as fallback
-              if pack_format is None:
-                  pack_format = fetch_pack_format_from_misode(version_id)
+          if pack_format is None:
+              pack_version = (
+            version_data.get("packVersion")
+            or version_data.get("pack_version")
+            or version_data.get("pack")
+            or {}
+              )
 
-              if pack_format is None:
-                  print(f"Warning: Could not determine pack format for {version_id}, skipping...")
-                  return None
+              def extract_pack_format(pv):
+            if isinstance(pv, dict):
+                return (
+              pv.get("resource")
+              or pv.get("resourcePack")
+              or pv.get("resource_pack")
+              or pv.get("resource_pack_version")
+              or pv.get("pack_format")
+                )
+            return pv
 
-              print(f"Resolved {version_id} to pack format {pack_format}")
-              return version_id, int(pack_format)
+              pack_format = extract_pack_format(pack_version)
 
-          grouped: dict[int, set[str]] = {}
-          for entry in targets:
-              result = resolve_pack_format(entry)
-              if result is not None:
-                  version_id, pack_format = result
-                  grouped.setdefault(pack_format, set()).add(version_id)
+          if pack_format is None:
+              pack_format = version_data.get("resourcePackVersion") or version_data.get("resource_pack_version")
 
-          groups = [
-              {"pack_format": pack_format, "versions": sorted(list(versions), reverse=True)}
-              for pack_format, versions in sorted(grouped.items(), key=lambda item: -item[0])
-          ]
+          if pack_format is None:
+              pack_format = fetch_pack_format_from_misode(version_id)
 
-          if not groups:
-              print("Warning: No versions could be resolved. Attempting to use latest release with default pack format.")
-              # Last resort: use latest release with a modern pack format default
-              if targets:
-                  latest = targets[0]
-                  latest_id = latest.get("id", "unknown")
-                  groups = [{"pack_format": 34, "versions": [latest_id]}]
-                  print(f"Using {latest_id} with pack format 34 (default for modern versions)")
-          
-          output = {"groups": groups}
-          with open("versions_to_update.json", "w", encoding="utf-8") as f:
-              json.dump(output, f, indent=2)
-          print(json.dumps(output, indent=2))
-          PYSCRIPT
+          if pack_format is None:
+              print(f"Warning: Could not determine pack format for {version_id}, skipping...")
+              return None
+
+          print(f"Resolved {version_id} to pack format {pack_format}")
+          return version_id, int(pack_format)
+
+            grouped: dict[int, set[str]] = {}
+            for entry in targets:
+          result = resolve_pack_format(entry)
+          if result is not None:
+              version_id, pack_format = result
+              grouped.setdefault(pack_format, set()).add(version_id)
+
+            groups = [
+          {"pack_format": pack_format, "versions": sorted(list(versions), reverse=True)}
+          for pack_format, versions in sorted(grouped.items(), key=lambda item: -item[0])
+            ]
+
+            if not groups:
+          print("Warning: No versions could be resolved. Attempting to use latest release with default pack format.")
+          if targets:
+              latest = targets[0]
+              latest_id = latest.get("id", "unknown")
+              groups = [{"pack_format": 34, "versions": [latest_id]}]
+              print(f"Using {latest_id} with pack format 34 (default for modern versions)")
+
+            output = {"groups": groups}
+            with open("versions_to_update.json", "w", encoding="utf-8") as f:
+          json.dump(output, f, indent=2)
+            print(json.dumps(output, indent=2))
+            PYSCRIPT
           fi
 
           {
             printf 'versions_json<<EOF\n'
             cat versions_to_update.json
-            printf '\nEOF\n'
+            printf 'EOF\n'
           } >> "$GITHUB_OUTPUT"
 
       - name: Extract pack format groups
-        id: extract
+        id: extract-groups
         run: |
           python3 <<'PY' > extracted.env
-    import json
-    with open('versions_to_update.json') as f:
-      data = json.load(f)
-    for i, group in enumerate(data.get('groups', [])):
-      versions = ','.join(group['versions'])
-      print(f'GROUP_{i}_VERSIONS={versions}')
-      print(f'GROUP_{i}_PACK_FORMAT={group["pack_format"]}')
-    print(f'TOTAL_GROUPS={len(data.get("groups", []))}')
-    PY
-          cat extracted.env >> "$GITHUB_ENV"
-          cat extracted.env >> "$GITHUB_OUTPUT"
+          import json
+          with open('versions_to_update.json') as f:
+              data = json.load(f)
+          for i, group in enumerate(data.get('groups', [])):
+              versions = ','.join(group['versions'])
+              print(f'GROUP_{i}_VERSIONS={versions}')
+              print(f'GROUP_{i}_PACK_FORMAT={group["pack_format"]}')
+          print(f'TOTAL_GROUPS={len(data.get("groups", []))}')
+          PY
+            cat extracted.env >> "$GITHUB_ENV"
+            cat extracted.env >> "$GITHUB_OUTPUT"
 
       - name: Read VERSION file
         id: version
         run: echo "PACK_VERSION=$(cat VERSION)" >> $GITHUB_OUTPUT
-
+  
       - name: Update pack files
         run: python3 scripts/update_pack.py
 
@@ -201,12 +195,12 @@ jobs:
           mkdir -p build
           zip -r "build/${{ inputs.pack_name }}.zip" pack.mcmeta pack.png assets/ -x "*.DS_Store"
 
-      - name: Upload to Modrinth (all groups)
-        env:
+          - name: Upload to Modrinth (all groups)
+      - env:
           MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
           PACK_VERSION: ${{ steps.version.outputs.PACK_VERSION }}
         run: |
-          groups_count="${TOTAL_GROUPS:-${{ steps.extract.outputs.TOTAL_GROUPS }}}"
+          groups_count="${TOTAL_GROUPS:-${{ steps.extract-groups.outputs.TOTAL_GROUPS }}}"
           if [ "$groups_count" -eq 0 ]; then
             echo "No pack-format groups resolved; skipping upload."
             exit 0
