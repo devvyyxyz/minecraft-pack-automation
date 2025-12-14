@@ -150,12 +150,14 @@ def fetch_modrinth_versions(project_id_or_slug: str) -> dict:
     """
     try:
         # Resolve to canonical project id first (supports slug or id)
-        canonical_id = resolve_modrinth_project_id(project_id_or_slug)        
+        canonical_id = resolve_modrinth_project_id(project_id_or_slug)
+        
         # If project doesn't exist yet (first upload), return empty sets
         if canonical_id is None:
             print(f"[!] No existing versions on Modrinth (new project or first upload)", file=sys.stderr)
             return {'game_versions': set(), 'pack_versions': {}}
-                url = f"https://api.modrinth.com/v2/project/{canonical_id}/versions"
+        
+        url = f"https://api.modrinth.com/v2/project/{canonical_id}/versions"
         with urllib.request.urlopen(url, timeout=10) as response:
             versions = json.loads(response.read().decode())
         
