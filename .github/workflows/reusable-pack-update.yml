@@ -42,10 +42,22 @@ jobs:
           import urllib.request
 
           MANIFEST_URL = "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json"
+          MISODE_PACKS_URL = "https://raw.githubusercontent.com/misode/mcmeta/summary/versions/data.json"
 
           def fetch_json(url: str) -> dict:
               with urllib.request.urlopen(url) as resp:
                   return json.load(resp)
+
+          def fetch_pack_format_from_misode(version_id: str) -> int | None:
+              try:
+                  data = fetch_json(MISODE_PACKS_URL)
+              except Exception:
+                  return None
+              version_entry = data.get("versions", {}).get(version_id)
+              if not version_entry:
+                  return None
+              pack_format = version_entry.get("resource")
+              return int(pack_format) if pack_format is not None else None
 
           manifest = fetch_json(MANIFEST_URL)
           versions = manifest.get("versions", [])
@@ -64,13 +76,35 @@ jobs:
           def resolve_pack_format(entry: dict) -> tuple[str, int]:
               version_id = entry.get("id")
               version_data = fetch_json(entry["url"])
-              pack_version = version_data.get("packVersion") or version_data.get("pack_version") or {}
-              if isinstance(pack_version, dict):
-                  pack_format = pack_version.get("resource") or pack_version.get("resourcePack") or pack_version.get("resource_pack")
-              else:
-                  pack_format = pack_version
+              pack_version = (
+                version_data.get("packVersion")
+                or version_data.get("pack_version")
+                or version_data.get("pack")
+                or {}
+              )
+
+              def extract_pack_format(pv):
+                if isinstance(pv, dict):
+                  return (
+                    pv.get("resource")
+                    or pv.get("resourcePack")
+                    or pv.get("resource_pack")
+                    or pv.get("resource_pack_version")
+                    or pv.get("pack_format")
+                  )
+                return pv
+
+              pack_format = extract_pack_format(pack_version)
+
               if pack_format is None:
-                  raise SystemExit(f"Missing pack format for {version_id}")
+                pack_format = version_data.get("resourcePackVersion") or version_data.get("resource_pack_version")
+
+              if pack_format is None:
+                pack_format = fetch_pack_format_from_misode(version_id)
+
+              if pack_format is None:
+                raise SystemExit(f"Missing pack format for {version_id}")
+
               return version_id, int(pack_format)
 
           grouped: dict[int, set[str]] = {}
