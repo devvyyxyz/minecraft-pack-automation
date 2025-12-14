@@ -28,21 +28,38 @@ class MinecraftVersion:
 
 
 def get_pack_version() -> str:
-    """Read pack version from VERSION file."""
-    version_file = Path(__file__).parent.parent / "VERSION"
-    try:
-        with open(version_file, 'r') as f:
-            version = f.read().strip()
-            if not version:
-                print("ERROR: VERSION file is empty", file=sys.stderr)
-                sys.exit(1)
-            return version
-    except FileNotFoundError:
-        print("ERROR: VERSION file not found. Create a VERSION file with your pack version (e.g., 1.0.0)", file=sys.stderr)
-        sys.exit(1)
-    except Exception as e:
-        print(f"ERROR: Failed to read VERSION file: {e}", file=sys.stderr)
-        sys.exit(1)
+    """Resolve pack version from environment or files.
+
+    Priority:
+    1. PACK_VERSION environment variable (set by workflow)
+    2. VERSION file in current working directory (caller repo)
+    3. VERSION file next to automation scripts (for local runs)
+    """
+    # 1. Environment variable provided by workflow
+    env_ver = os.environ.get("PACK_VERSION")
+    if env_ver:
+        return env_ver.strip()
+
+    # 2. Caller repo VERSION
+    cwd_version = Path("VERSION")
+    if cwd_version.exists():
+        try:
+            return cwd_version.read_text().strip()
+        except Exception as e:
+            print(f"ERROR: Failed to read caller VERSION file: {e}", file=sys.stderr)
+            sys.exit(1)
+
+    # 3. Automation repo VERSION (local/dev fallback)
+    automation_version = Path(__file__).parent.parent / "VERSION"
+    if automation_version.exists():
+        try:
+            return automation_version.read_text().strip()
+        except Exception as e:
+            print(f"ERROR: Failed to read automation VERSION file: {e}", file=sys.stderr)
+            sys.exit(1)
+
+    print("ERROR: VERSION not found. Provide PACK_VERSION env or a VERSION file.", file=sys.stderr)
+    sys.exit(1)
 
 
 def fetch_minecraft_releases() -> List[MinecraftVersion]:
