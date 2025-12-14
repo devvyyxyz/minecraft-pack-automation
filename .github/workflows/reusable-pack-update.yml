@@ -1,0 +1,90 @@
+name: Reusable Pack Update Workflow
+
+on:
+  workflow_call:
+    inputs:
+      modrinth_project_id:
+        description: 'Modrinth project ID (slug or ID)'
+        required: true
+        type: string
+      pack_name:
+        description: 'Resource pack name used for zip file name'
+        required: false
+        type: string
+        default: 'Resource Pack'
+    secrets:
+      MODRINTH_TOKEN:
+        description: 'Modrinth API token'
+        required: true
+
+jobs:
+  update-pack:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout pack repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Resolve versions to update
+        id: resolve
+        run: |
+          python3 scripts/resolve_versions.py "${{ inputs.modrinth_project_id }}" > versions_to_update.json
+          echo "versions_json<<EOF" >> $GITHUB_OUTPUT
+          cat versions_to_update.json >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Extract pack format groups
+        id: extract
+        run: |
+          python3 - << 'PY'
+          import json
+          with open('versions_to_update.json') as f:
+              data = json.load(f)
+          for i, group in enumerate(data.get('groups', [])):
+              versions = ','.join(group['versions'])
+              print(f'GROUP_{i}_VERSIONS={versions}')
+              print(f'GROUP_{i}_PACK_FORMAT={group["pack_format"]}')
+          print(f'TOTAL_GROUPS={len(data.get("groups", []))}')
+          PY >> $GITHUB_OUTPUT
+
+      - name: Read VERSION file
+        id: version
+        run: echo "PACK_VERSION=$(cat VERSION)" >> $GITHUB_OUTPUT
+
+      - name: Update pack files
+        run: python3 scripts/update_pack.py
+
+      - name: Create resource pack zip
+        run: |
+          mkdir -p build
+          zip -r "build/${{ inputs.pack_name }}.zip" pack.mcmeta assets/ -x "*.DS_Store"
+
+      - name: Upload to Modrinth (all groups)
+        env:
+          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+          PACK_VERSION: ${{ steps.version.outputs.PACK_VERSION }}
+        run: |
+          groups_count=${{ steps.extract.outputs.TOTAL_GROUPS }}
+          for i in $(seq 0 $((groups_count - 1))); do
+            eval "versions=\$GROUP_${i}_VERSIONS"
+            eval "pack_format=\$GROUP_${i}_PACK_FORMAT"
+
+            version_number="${PACK_VERSION}-pf${pack_format}"
+
+            echo "Uploading version $version_number for pack format $pack_format"
+            python3 scripts/upload_modrinth.py \
+              "build/${{ inputs.pack_name }}.zip" \
+              "${{ inputs.modrinth_project_id }}" \
+              "$versions" \
+              "$version_number" \
+              "$MODRINTH_TOKEN"
+          done
