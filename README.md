@@ -1,45 +1,50 @@
-# Automation Template
+# Minecraft Pack Automation
 
-This folder contains a reusable GitHub Actions workflow you can copy into other resource pack repositories to run centralized automation.
+A reusable GitHub Actions workflow that pack repositories can call to update and publish resource packs for the **latest** and **previous** Minecraft releases.
 
-## Files
+## What It Does
+- Looks up the newest and prior Minecraft release from Mojang's version manifest.
+- Reads their resource pack formats and groups versions by pack_format.
+- Calls your repo's `scripts/update_pack.py` to regenerate the pack contents.
+- Zips `pack.mcmeta` and `assets/`, then uploads per pack-format group via your `scripts/upload_modrinth.py`.
 
-- `.github/workflows/reusable-pack-update.yml` — Reusable workflow that runs in the target repo and uses its `scripts/` and files
-- `.github/workflows/auto-update.yml` — Minimal caller workflow example for pack repos
+## Use From a Pack Repo
+1. Add a workflow in your pack repository that calls this reusable one, for example:
 
-## Quick Setup (Per Pack Repo)
+    ```yaml
+    name: Auto-Update Minecraft Resource Pack
 
-1. Copy the `.github/workflows` folder from `automation-template` into your target repo.
-2. Ensure your repo contains:
-   - `VERSION` (e.g., `1.0.0`)
-   - `pack.mcmeta`
-   - `assets/` folder
-   - `scripts/resolve_versions.py`, `scripts/update_pack.py`, `scripts/upload_modrinth.py`
-3. Edit `.github/workflows/auto-update.yml`:
-   - Replace `OWNER/REPO` with your automation repo path (or leave as local call if you keep the reusable file in the same repo)
-   - Set `modrinth_project_id` and `pack_name`
-4. Add repo secret `MODRINTH_TOKEN` in GitHub → Settings → Secrets and variables → Actions.
+    on:
+       schedule:
+          - cron: '0 3 * * *'  # Daily at 3 AM UTC
+       workflow_dispatch:
 
-## How It Works
+    jobs:
+       update-pack:
+          uses: devvyyxyz/minecraft-pack-automation/.github/workflows/reusable-pack-update.yml@main
+          with:
+             modrinth_project_id: 'your-modrinth-project-id'
+             pack_name: 'Your Pack Name'
+          secrets:
+             MODRINTH_TOKEN: ${{ secrets.MODRINTH_API_TOKEN }}
+    ```
 
-- `auto-update.yml` calls the reusable workflow.
-- The reusable workflow:
-  - Resolves missing game versions via `scripts/resolve_versions.py` (using misode/mcmeta API for pack formats)
-  - Updates pack files via `scripts/update_pack.py`
-  - Zips `pack.mcmeta` + `assets/`
-  - Uploads per pack-format group via `scripts/upload_modrinth.py`
+    - Adjust the cron as needed. The secret name can differ; map it to `MODRINTH_TOKEN` in the `secrets` block.
 
-## Local Test
+2. Ensure your pack repo contains:
+   - VERSION (your release number)
+   - pack.mcmeta
+   - assets/
+   - scripts/update_pack.py (updates files for the target pack formats)
+   - scripts/upload_modrinth.py (zip path, project id, comma-separated MC versions, version label, token)
+3. Adjust the schedule in your caller workflow if you want a cadence other than daily.
 
-You can test the resolver locally:
-
-```bash
-python3 scripts/resolve_versions.py "your-modrinth-project-id"
-```
-
-This prints a JSON with groups and versions determined by API-only data.
+## Workflow Steps
+- Resolve versions: Fetch Mojang's manifest, pick latest and previous releases, read their pack formats, and write versions_to_update.json grouped by pack_format.
+- Update pack: Run scripts/update_pack.py in the pack repo workspace.
+- Package: Zip pack.mcmeta and assets/ into build/<pack_name>.zip.
+- Publish: For each pack-format group, run scripts/upload_modrinth.py with the matched MC versions and version label <VERSION>-pf<pack_format>.
 
 ## Notes
-
-- The reusable workflow assumes scripts live inside each pack repo under `scripts/`.
-- If you plan to centralize scripts in another repo, adjust the workflow to checkout that repo and call scripts from there.
+- The workflow relies on the pack repository's scripts/update_pack.py and scripts/upload_modrinth.py; keep their CLIs stable.
+- If you need different packaging rules, tweak the zip command in the reusable workflow (or open a PR here).

@@ -7,7 +7,7 @@ on:
 
 jobs:
   update:
-    uses: OWNER/REPO/.github/workflows/reusable-pack-update.yml@main
+    uses: kaispife/minecraft-pack-automation/.github/workflows/reusable-pack-update.yml@main
     with:
       modrinth_project_id: 'your-modrinth-project-slug-or-id'
       pack_name: 'Your Pack Name'
