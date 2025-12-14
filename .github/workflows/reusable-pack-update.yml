@@ -85,7 +85,19 @@ jobs:
       
           
       - name: Update pack files
-        run: python3 _automation/scripts/update_pack.py
+        run: |
+          groups_count="${TOTAL_GROUPS:-${{ steps.extract-groups.outputs.TOTAL_GROUPS }}}"
+          if [ -z "$groups_count" ] || [ "$groups_count" -eq 0 ]; then
+            echo "No pack-format groups resolved; skipping update_pack."
+            exit 0
+          fi
+          for i in $(seq 0 $((groups_count - 1))); do
+            eval "versions=\$GROUP_${i}_VERSIONS"
+            eval "pack_format=\$GROUP_${i}_PACK_FORMAT"
+            first_version="${versions%%,*}"
+            echo "Updating pack.mcmeta for pack_format=$pack_format, minecraft_version=$first_version"
+            python3 _automation/scripts/update_pack.py pack.mcmeta "$first_version" "$pack_format"
+          done
 
       - name: Create resource pack zip
         run: |
