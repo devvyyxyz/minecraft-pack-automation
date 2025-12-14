@@ -81,9 +81,16 @@ jobs:
           if previous_idx is not None:
               targets.append(versions[previous_idx])
 
-          def resolve_pack_format(entry: dict) -> tuple[str, int]:
+          def resolve_pack_format(entry: dict) -> tuple[str, int] | None:
               version_id = entry.get("id")
-              version_data = fetch_json(entry["url"])
+              print(f"Attempting to resolve pack format for {version_id}...")
+              
+              try:
+                  version_data = fetch_json(entry["url"])
+              except Exception as e:
+                  print(f"Warning: Failed to fetch version data for {version_id}: {e}")
+                  return None
+              
               pack_version = (
                   version_data.get("packVersion")
                   or version_data.get("pack_version")
@@ -111,20 +118,27 @@ jobs:
                   pack_format = fetch_pack_format_from_misode(version_id)
 
               if pack_format is None:
-                  raise SystemExit(f"Missing pack format for {version_id}")
+                  print(f"Warning: Could not determine pack format for {version_id}, skipping...")
+                  return None
 
+              print(f"Resolved {version_id} to pack format {pack_format}")
               return version_id, int(pack_format)
 
           grouped: dict[int, set[str]] = {}
           for entry in targets:
-              version_id, pack_format = resolve_pack_format(entry)
-              grouped.setdefault(pack_format, set()).add(version_id)
+              result = resolve_pack_format(entry)
+              if result is not None:
+                  version_id, pack_format = result
+                  grouped.setdefault(pack_format, set()).add(version_id)
 
           groups = [
               {"pack_format": pack_format, "versions": sorted(list(versions), reverse=True)}
               for pack_format, versions in sorted(grouped.items(), key=lambda item: -item[0])
           ]
 
+          if not groups:
+              print("Warning: No versions could be resolved. Using empty groups list.")
+          
           output = {"groups": groups}
           with open("versions_to_update.json", "w", encoding="utf-8") as f:
               json.dump(output, f, indent=2)
