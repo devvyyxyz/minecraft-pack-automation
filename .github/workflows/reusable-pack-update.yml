@@ -58,7 +58,10 @@ jobs:
                   data = fetch_json(MISODE_PACKS_URL)
               except Exception:
                   return None
-              version_entry = data.get("versions", {}).get(version_id)
+              if isinstance(data, list):
+                  version_entry = next((v for v in data if v.get("id") == version_id), None)
+              else:
+                  version_entry = data.get("versions", {}).get(version_id)
               if not version_entry:
                   return None
               pack_format = version_entry.get("resource")
