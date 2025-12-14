@@ -86,7 +86,7 @@ jobs:
           mkdir -p build
           zip -r "build/${{ inputs.pack_name }}.zip" pack.mcmeta pack.png assets/ -x "*.DS_Store"
 
-          - name: Upload to Modrinth (all groups)
+      - name: Upload to Modrinth (all groups)
         env:
           MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
           PACK_VERSION: ${{ steps.version.outputs.PACK_VERSION }}
